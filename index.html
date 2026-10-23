@@ -27,7 +27,14 @@ button:focus-visible,select:focus-visible{outline:3px solid var(--mid);outline-o
 .kr button.w{max-width:70px;flex:1.6;font-size:.8rem}
 .kr button.ok,.kr button.mid,.kr button.no{color:#fff}
 .kr button.ok{background:var(--ok)}.kr button.mid{background:var(--mid)}.kr button.no{background:var(--no)}
-[data-col=dalt]{--ok:#0b6bcb;--mid:#e07b00}[data-col=hc]{--ok:#00562e;--mid:#a04a00;--no:#222;--bd:#000;--fg:#000}#st,#hs,#cn,#ps,#ac{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(92vw,420px);max-height:90vh;overflow:auto;background:var(--bg);border:2px solid var(--acc);border-radius:12px;padding:18px;z-index:9;box-shadow:0 10px 40px rgba(0,0,0,.35)}
+[data-col=dalt]{--ok:#0b6bcb;--mid:#e07b00}[data-col=hc]{--ok:#00562e;--mid:#a04a00;--no:#222;--bd:#000;--fg:#000}#in{position:fixed;inset:0;z-index:50;background:radial-gradient(circle at 50% 35%,#1d3a40,#0f161c 70%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;color:#fff;transition:opacity .6s;padding:16px}
+#in.out{opacity:0}#ig{display:grid;gap:6px;width:min(74vw,290px)}#ig .r{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+#ig .t{aspect-ratio:1;border:2px solid #3a4754;border-radius:6px;display:flex;align-items:center;justify-content:center;font:700 clamp(1rem,5.5vw,1.6rem) system-ui;color:#fff;transition:transform .17s,background .2s}
+#ig .t.f{transform:rotateX(90deg)}#ig .t.ok{background:#1f6f5c;border-color:#1f6f5c}#ig .t.mid{background:#d98a1c;border-color:#d98a1c}#ig .t.no{background:#4b5766;border-color:#4b5766}
+#it{font:700 clamp(2rem,10vw,3.2rem) Georgia,serif;letter-spacing:.12em;opacity:0;transition:opacity 1.2s;text-align:center}
+#is{opacity:0;transition:opacity 1.2s;font:1rem system-ui;color:#b8c4cf;text-align:center}
+#ii{position:absolute;bottom:calc(18px + env(safe-area-inset-bottom,0px));display:flex;gap:10px}#ii button{background:transparent;color:#cfd8df;border-color:#4b5766}
+#st,#hs,#cn,#ps,#ac{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(92vw,420px);max-height:90vh;overflow:auto;background:var(--bg);border:2px solid var(--acc);border-radius:12px;padding:18px;z-index:9;box-shadow:0 10px 40px rgba(0,0,0,.35)}
 #st .n{display:flex;justify-content:space-around;text-align:center}
 #st .n b{display:block;font-size:1.6rem}
 .bar{display:flex;align-items:center;gap:8px;margin:3px 0}.bar i{display:block;background:var(--acc);color:#fff;padding:1px 6px;border-radius:3px;font-style:normal;min-width:1.5em;text-align:right}
@@ -169,8 +176,8 @@ $("cn").innerHTML=`<button onclick="$('cn').style.display='none'" style="float:r
 function applyP(){const r=document.documentElement;r.style.setProperty("--ff",FF[P.f]||FF.std);r.style.setProperty("--z",P.z);r.dataset.col=P.c}
 function sp(k,v){P[k]=k=="z"?+v:v;save("p",P);applyP();psr()}
 function psr(){const o=(k,a)=>`<select onchange="sp('${k}',this.value)">`+a.map(([v,l])=>`<option value="${v}"${String(P[k])==String(v)?" selected":""}>${l}</option>`).join("")+"</select>";
-$("ps").innerHTML=`<button onclick="$('ps').style.display='none'" style="float:right">Fermer</button><h2 style="margin:0 0 10px;font:700 1.2rem Georgia,serif">Confort de lecture</h2><p>Police<br>${o("f",[["std","Standard"],["lis","Lisible (large)"],["ser","Avec empattements"]])}</p><p>Taille des lettres<br>${o("z",[[0.9,"Petite"],[1,"Normale"],[1.2,"Grande"],[1.4,"Très grande"]])}</p><p>Couleurs<br>${o("c",[["std","Classique (vert / orange)"],["dalt","Bleu / orange (daltonisme)"],["hc","Contraste élevé"]])}</p>`}
-document.addEventListener("keydown",e=>{if(e.ctrlKey||e.metaKey||e.altKey||["INPUT","SELECT","TEXTAREA"].includes(document.activeElement.tagName))return;
+$("ps").innerHTML=`<button onclick="$('ps').style.display='none'" style="float:right">Fermer</button><h2 style="margin:0 0 10px;font:700 1.2rem Georgia,serif">Confort de lecture</h2><p>Police<br>${o("f",[["std","Standard"],["lis","Lisible (large)"],["ser","Avec empattements"]])}</p><p>Taille des lettres<br>${o("z",[[0.9,"Petite"],[1,"Normale"],[1.2,"Grande"],[1.4,"Très grande"]])}</p><p>Couleurs<br>${o("c",[["std","Classique (vert / orange)"],["dalt","Bleu / orange (daltonisme)"],["hc","Contraste élevé"]])}</p><p>Séquence d'ouverture<br>${o("i",[["std","Complète une fois par jour, puis courte"],["full","Toujours complète"],["short","Toujours courte"],["off","Aucune"]])}</p><p>Musique d'ouverture<br>${o("m",[["1","Avec musique"],["0","Sans musique"]])}</p>`}
+document.addEventListener("keydown",e=>{if(e.ctrlKey||e.metaKey||e.altKey||$("in")||["INPUT","SELECT","TEXTAREA"].includes(document.activeElement.tagName))return;
 if(e.key=="Enter"){if(document.activeElement.tagName=="BUTTON"||document.activeElement.tagName=="SELECT")return;e.preventDefault();press("ENTER")}
 else if(e.key=="Backspace")press("DEL");
 else if(e.key.length==1){const x=norm(e.key);if(x.length==1)press(x)}});
@@ -181,7 +188,32 @@ $("sb").onclick=()=>{try{stats()}catch(e){}const s=$("st");s.style.display=getCo
 $("hb").onclick=()=>{hist();const s=$("hs");s.style.display=getComputedStyle(s).display=="none"?"block":"none"};
 $("sb").onclick=()=>{try{stats()}catch(e){}show("st")};$("hb").onclick=()=>{hist();show("hs")};$("cb").onclick=()=>{cnr();show("cn")};$("pb").onclick=()=>{psr();show("ps")};
 $("ab").onclick=()=>{acr();show("ac")};
+const TW=["SOLEIL","ARBRES","ECOUTE","ESCAPE","ESSAIE","ESSAIS"];let IA=null,IT=[],MU=false;
+function isc(w,t){const r=Array(6).fill("no"),u={};for(let k=0;k<6;k++){if(w[k]==t[k])r[k]="ok";else u[t[k]]=(u[t[k]]||0)+1}for(let k=0;k<6;k++)if(r[k]!="ok"&&u[w[k]]>0){r[k]="mid";u[w[k]]--}return r}
+function tone(f,t,d,v){if(!IA)return;const s=IA.currentTime+t,o=IA.createOscillator(),g=IA.createGain();o.type="triangle";o.frequency.value=f;g.gain.setValueAtTime(0,s);g.gain.linearRampToValueAtTime(v,s+.015);g.gain.exponentialRampToValueAtTime(.0001,s+d);o.connect(g);g.connect(IA.m);o.start(s);o.stop(s+d+.05)}
+function audio(){try{IA=new(window.AudioContext||window.webkitAudioContext)();IA.resume&&IA.resume();IA.m=IA.createGain();IA.m.gain.value=.6;IA.m.connect(IA.destination);
+const N=[523.25,587.33,659.25,783.99,880,1046.5],pat=[0,2,3,5,3,2,1,2,0,3,4,3,2,1,0,2],bass=[130.8,110,87.3,98];
+for(let i=0;i<34;i++)tone(N[pat[i%16]],i*.4,1.1,.11);
+for(let i=0;i<9;i++)tone(bass[i%4],i*1.6,2.2,.13);
+for(let r=0;r<6;r++)tone(r==5?1318.5:1174.7,(r*1600+800)/1e3,.5,.05);
+[523.25,659.25,783.99,1046.5].forEach((f,i)=>tone(f,9.6+i*.05,3.6,.12))}catch(e){IA=null}}
+function introMode(){if(matchMedia("(prefers-reduced-motion:reduce)").matches)return"off";const m=P.i||"std",d=new Date().toDateString();return m=="std"?(load("intro","")==d?"short":"full"):m}
+function runIntro(){const mode=introMode();if(mode=="off")return;
+const o=document.createElement("div");o.id="in";o.innerHTML=`<div id="ig"></div><div id="it">SIX ESSAIS</div><div id="is"></div><div id="ii"><button id="ip">Passer</button><button id="iv" style="display:none">♪ Son</button></div>`;document.body.appendChild(o);
+const q=x=>o.querySelector(x),at=(ms,f)=>IT.push(setTimeout(()=>{try{f()}catch(e){done()}},ms));
+function done(){IT.forEach(clearTimeout);IT=[];try{IA&&IA.close()}catch(e){}IA=null;o.classList.add("out");setTimeout(()=>o.remove(),650)}
+q("#ip").onclick=e=>{e.stopPropagation();done()};
+q("#iv").onclick=e=>{e.stopPropagation();MU=!MU;if(IA)IA.m.gain.value=MU?0:.6;q("#iv").textContent=MU?"🔇 Muet":"♪ Son"};
+if(mode=="short"){q("#ig").style.display="none";at(80,()=>q("#it").style.opacity=1);at(2000,done);return}
+const go=()=>{save("intro",new Date().toDateString());const g=q("#ig");
+g.innerHTML=TW.map(()=>`<div class="r">${"<div class=\"t\"></div>".repeat(6)}</div>`).join("");
+TW.forEach((w,r)=>{const row=g.children[r],sc=isc(w,"ESSAIS"),b=r*1600;
+for(let k=0;k<6;k++){const c=row.children[k];at(b+k*110,()=>c.textContent=w[k]);at(b+800+k*100,()=>c.classList.add("f"));at(b+970+k*100,()=>{c.classList.remove("f");c.classList.add(sc[k])})}});
+at(9800,()=>{g.style.transition="opacity 1.5s";g.style.opacity=.35;q("#it").style.opacity=1;q("#is").textContent="Un mot · six essais";q("#is").style.opacity=1});
+at(13400,done)};
+if(P.m!=="0"){q("#it").style.opacity=1;q("#is").textContent="Toucher pour entrer ♪";q("#is").style.opacity=1;
+o.onclick=()=>{o.onclick=null;q("#it").style.opacity=0;q("#is").style.opacity=0;q("#is").textContent="";q("#iv").style.display="";audio();at(900,go)}}else go()}
 applyP();setSy(syn);try{stats()}catch(e){}
-start();hashAuth();sync();
+start();hashAuth();sync();try{runIntro()}catch(e){}
 if("serviceWorker" in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script></body></html>
