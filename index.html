@@ -107,11 +107,19 @@ document.addEventListener("change",e=>{if(e.target.id=="imp")imp(e.target.files[
 const SB="https://brpbtjqvdrluazesnsak.supabase.co",KEY="sb_publishable_rVHqFMKNmtnjo5ld25Xn_Q_kJa8oHP3";
 let AUTH=load("auth",null),AM="in",busy=false,syn="";
 const AU=()=>!!(AUTH&&AUTH.rt),mx=(a,b)=>Math.max(a||0,b||0);
+/* "own" = compte auquel appartiennent les données de cet appareil (null = parties jouées sans compte) */
+if(load("own","?")=="?")save("own",AU()?AUTH.uid:null);
+function clearLocal(){S={p:0,w:0,c:0,b:0,d:[0,0,0,0,0,0]};H=[];C={};save("s",S);save("h",H);save("c",C);try{stats()}catch(e){}}
+function adopt(nu){const own=load("own",null);if(own===nu)return;
+if(own||!(H.length||S.p))clearLocal();
+else if(!confirm("Cet appareil contient "+(H.length||S.p)+" partie(s) jouée(s) sans compte. Les ajouter à ce compte ?\n\n(Choisissez « Annuler » si ces parties sont celles de quelqu'un d'autre.)"))clearLocal();
+save("own",nu)}
+let authBusy=false;
 const errFr=m=>{m=String(m);return /invalid login/i.test(m)?"Adresse ou mot de passe incorrect.":/already registered|user_already_exists/i.test(m)?"Un compte existe déjà avec cette adresse.":/not confirmed/i.test(m)?"Adresse pas encore confirmée : cliquez sur le lien reçu par e-mail.":/rate limit|over_email_send/i.test(m)?"Trop d'e-mails envoyés pour le moment, réessayez plus tard.":/weak/i.test(m)?"Mot de passe trop faible.":m};
 async function api(path,opt={},tk){const h={apikey:KEY,"Content-Type":"application/json",...(tk?{Authorization:"Bearer "+tk}:{}),...(opt.headers||{})};
 const r=await fetch(SB+path,{...opt,headers:h});let j=null;try{j=await r.json()}catch(e){}
 if(!r.ok)throw new Error(errFr((j&&(j.error_description||j.msg||j.message||j.error_code))||"Erreur "+r.status));return j}
-function setSess(j){if(!j||!j.access_token)return false;AUTH={at:j.access_token,rt:j.refresh_token,exp:j.expires_at||Math.floor(Date.now()/1e3)+(j.expires_in||3600),uid:(j.user&&j.user.id)||(AUTH&&AUTH.uid),email:(j.user&&j.user.email)||(AUTH&&AUTH.email)};save("auth",AUTH);return true}
+function setSess(j,u){if(!j||!j.access_token)return false;if(u)j.user=u;AUTH={at:j.access_token,rt:j.refresh_token,exp:j.expires_at||Math.floor(Date.now()/1e3)+(j.expires_in||3600),uid:(j.user&&j.user.id)||(AUTH&&AUTH.uid),email:(j.user&&j.user.email)||(AUTH&&AUTH.email)};save("auth",AUTH);return true}
 async function tok(){if(!AU())throw new Error("Non connecté");
 if(AUTH.exp-60<Date.now()/1e3){try{setSess(await api("/auth/v1/token?grant_type=refresh_token",{method:"POST",body:JSON.stringify({refresh_token:AUTH.rt})}))}catch(e){if(!(e instanceof TypeError)){AUTH=null;save("auth",null);setSy("")}throw e}}return AUTH.at}
 function derive(h){const o={p:0,w:0,tt:0,tw:0,d:[0,0,0,0,0,0],c:0,b:0};h.forEach(x=>{o.p++;o.tt+=x.t||0;if(x.r){o.w++;o.tw+=x.t||0;o.d[x.r-1]++}});let c=0;[...h].reverse().forEach(x=>{if(x.r){c++;o.b=Math.max(o.b,c)}else c=0});o.c=c;return o}
@@ -130,21 +138,22 @@ if(!cl||JSON.stringify(m)!=JSON.stringify(cl))await api("/rest/v1/user_data?on_c
 dflush();setSy("Synchronisé à "+new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}));try{stats()}catch(e){}}
 catch(e){setSy(e instanceof TypeError?"Hors ligne : synchronisation à la prochaine connexion.":"Erreur : "+e.message)}
 busy=false}
-async function doAuth(mode){const em=$("ae").value.trim(),pw=$("ap")?$("ap").value:"",m=$("am"),ru=encodeURIComponent(location.origin+location.pathname);m.textContent="…";
+async function doAuth(mode){if(authBusy)return;authBusy=true;try{await doAuth2(mode)}finally{authBusy=false}}
+async function doAuth2(mode){const em=$("ae").value.trim(),pw=$("ap")?$("ap").value:"",m=$("am"),ru=encodeURIComponent(location.origin+location.pathname);m.textContent="…";
 try{if(mode=="reset"){await api("/auth/v1/recover?redirect_to="+ru,{method:"POST",body:JSON.stringify({email:em})});m.textContent="Si cette adresse existe, un e-mail de réinitialisation vient d'être envoyé.";return}
 if(pw.length<8){m.textContent="Mot de passe : 8 caractères minimum.";return}
 if(mode=="up"){const j=await api("/auth/v1/signup?redirect_to="+ru,{method:"POST",body:JSON.stringify({email:em,password:pw})});
 if(!setSess(j)){m.textContent="Compte créé. Vérifiez vos e-mails, cliquez sur le lien de confirmation, puis revenez vous connecter ici.";return}}
 else setSess(await api("/auth/v1/token?grant_type=password",{method:"POST",body:JSON.stringify({email:em,password:pw})}));
-await sync(true);acr()}catch(e){m.textContent=e.message}}
+adopt(AUTH.uid);await sync(true);acr()}catch(e){m.textContent=e.message}}
 async function newPw(){const pw=$("ap").value,m=$("am");if(pw.length<8){m.textContent="Mot de passe : 8 caractères minimum.";return}
 try{await api("/auth/v1/user",{method:"PUT",body:JSON.stringify({password:pw})},AUTH.at);AM="in";await sync(true);acr()}catch(e){m.textContent=e.message}}
 async function logout(){if(!confirm("Se déconnecter ? Vos données restent en ligne et seront effacées de cet appareil."))return;
 await sync();if(/^Erreur|^Hors/.test(syn)&&!confirm("La dernière synchronisation a échoué : des parties récentes pourraient être perdues. Se déconnecter quand même ?"))return;
 try{await api("/auth/v1/logout",{method:"POST"},AUTH.at)}catch(e){}
-AUTH=null;save("auth",null);S={p:0,w:0,c:0,b:0,d:[0,0,0,0,0,0]};H=[];C={};save("s",S);save("h",H);save("c",C);setSy("");stats();acr();start()}
+AUTH=null;save("auth",null);clearLocal();save("own",null);setSy("");acr();start()}
 async function delAcc(){if(!confirm("Supprimer définitivement votre compte et toutes vos données en ligne ? Les données resteront sur cet appareil."))return;
-try{const t=await tok();await api("/rest/v1/rpc/delete_my_account",{method:"POST",body:"{}"},t);AUTH=null;save("auth",null);setSy("");acr()}catch(e){alert("Suppression impossible : "+e.message)}}
+try{const t=await tok();await api("/rest/v1/rpc/delete_my_account",{method:"POST",body:"{}"},t);AUTH=null;save("auth",null);save("own",null);setSy("");acr()}catch(e){alert("Suppression impossible : "+e.message)}}
 function acr(){const x=s=>String(s||"").replace(/</g,"&lt;"),cl=`<button onclick="$('ac').style.display='none'" style="float:right">Fermer</button>`,hh=`<h2 style="margin:0 0 10px;font:700 1.2rem Georgia,serif">`,ip="style=\"width:100%;padding:9px;margin:4px 0\"";let h;
 if(AM=="new")h=cl+hh+`Nouveau mot de passe</h2><input id="ap" type="password" autocomplete="new-password" placeholder="Nouveau mot de passe (8 caractères min.)" ${ip}><p><button onclick="newPw()">Enregistrer</button></p><p id="am"></p>`;
 else if(AU())h=cl+hh+`Mon compte</h2><p>Connecté : <b>${x(AUTH.email)}</b></p><p id="sy">${x(syn)}</p><div class="row"><button onclick="sync(true)">Synchroniser maintenant</button><button onclick="logout()">Se déconnecter</button></div><p><small>Vos statistiques, votre historique et votre carnet sont enregistrés en ligne et partagés entre vos appareils connectés à ce compte.</small></p><p><button onclick="delAcc()">Supprimer mon compte et mes données en ligne</button></p>`;
@@ -153,8 +162,10 @@ $("ac").innerHTML=h}
 async function hashAuth(){const q=new URLSearchParams(location.hash.slice(1));
 if(q.get("error_description")){history.replaceState(null,"",location.pathname);AM="in";acr();show("ac");const m=$("am");if(m)m.textContent=q.get("error_description");return}
 if(!q.get("access_token"))return;history.replaceState(null,"",location.pathname);
-setSess({access_token:q.get("access_token"),refresh_token:q.get("refresh_token"),expires_in:+q.get("expires_in")||3600});
-try{const u=await api("/auth/v1/user",{},AUTH.at);AUTH.uid=u.id;AUTH.email=u.email;save("auth",AUTH)}catch(e){AUTH=null;save("auth",null);return}
+let u;try{u=await api("/auth/v1/user",{},q.get("access_token"))}catch(e){return}
+if(AU()&&AUTH.uid!==u.id)await sync();
+setSess({access_token:q.get("access_token"),refresh_token:q.get("refresh_token"),expires_in:+q.get("expires_in")||3600},u);
+adopt(u.id);
 if(q.get("type")=="recovery")AM="new";else{AM="in";await sync()}acr();show("ac")}
 document.addEventListener("visibilitychange",()=>{if(AU())sync()});
 const dueN=()=>Object.values(C).filter(e=>e.rv&&e.due<=Date.now()).length;
@@ -293,6 +304,6 @@ at(13400,done)};
 if(P.m!=="0"){q("#it").style.opacity=1;q("#is").textContent="Toucher pour entrer ♪";q("#is").style.opacity=1;
 o.onclick=()=>{o.onclick=null;q("#it").style.opacity=0;q("#is").style.opacity=0;q("#is").textContent="";q("#iv").style.display="";audio();at(900,go)}}else go()}
 applyP();setSy(syn);try{stats()}catch(e){}
-start();hashAuth();sync();try{runIntro()}catch(e){}
+start();hashAuth().then(()=>sync());try{runIntro()}catch(e){}
 if("serviceWorker" in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script></body></html>
