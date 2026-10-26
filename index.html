@@ -53,20 +53,22 @@ const $=id=>document.getElementById(id);
 const norm=s=>s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().replace(/[^A-Z]/g,"");
 const load=(k,d)=>{try{const v=localStorage.getItem("six:"+k);return v?JSON.parse(v):d}catch(e){return d}};
 const save=(k,v)=>{try{localStorage.setItem("six:"+k,JSON.stringify(v))}catch(e){}};
-let S=load("s",{p:0,w:0,c:0,b:0,d:[0,0,0,0,0,0]}),N=+load("n",6),T,O,rows,cur,over,ks={};
+/* v10 : l'ancienne copie locale (v9 et avant) n'est jamais renvoyée au serveur : on l'efface une fois. */
+if(load("v",0)<10){["s","h","c","own","bk"].forEach(k=>{try{localStorage.removeItem("six:"+k)}catch(e){}});save("v",10)}
+let S={p:0,w:0,c:0,b:0,d:[0,0,0,0,0,0]},N=+load("n",6),T,O,rows,cur,over,ks={};
 const MAXT=6,R=["AZERTYUIOP","QSDFGHJKLM","*WXCVBN#"];
 if(!S||typeof S!="object"||!Array.isArray(S.d)||S.d.length!=6)S={p:0,w:0,c:0,b:0,d:[0,0,0,0,0,0]};
 if(!(N>=5&&N<=9))N=6;
-let H=load("h",[]);if(!Array.isArray(H))H=[];
-let el=0,la=Date.now(),hsort=false,rev=false,C=load("c",{}),P=load("p",{f:"std",z:1,c:"std"});
-if(!C||typeof C!="object"||Array.isArray(C))C={};if(!P||typeof P!="object")P={f:"std",z:1,c:"std"};
+let H=[],LG=null;
+let el=0,la=Date.now(),hsort=false,rev=false,C={},P=load("p",{f:"std",z:1,c:"std"});
+if(!P||typeof P!="object")P={f:"std",z:1,c:"std"};
 let dmode=false,DY="",DP=load("dp",null),DJ=null,DJR=null,DJC=[],DJS={cid:null};
 const IV=[1,3,7,14,30,60],FF={std:"system-ui,-apple-system,sans-serif",lis:"Verdana,Tahoma,sans-serif",ser:"Georgia,serif"};
 const fmt=s=>s>=3600?Math.floor(s/3600)+" h "+Math.floor(s%3600/60)+" min":s>=60?Math.floor(s/60)+" min "+String(s%60).padStart(2,"0")+" s":s+" s";
 setInterval(()=>{if(!over&&!document.hidden&&Date.now()-la<120000)el++},1000);
 ["keydown","pointerdown"].forEach(ev=>document.addEventListener(ev,()=>{la=Date.now()}));
 const sel=$("len");for(let n=5;n<=9;n++)sel.add(new Option(n,n));sel.value=N;
-function start(o){dmode=false;sel.disabled=false;if(o){N=norm(o).length;sel.value=N}rev=!!o;const p=A[N]||A[6];O=o||p[Math.floor(Math.random()*p.length)];T=norm(O);rows=[];cur=T[0];over=false;ks={};el=0;la=Date.now();$("m").textContent=(rev?"Révision · ":"")+"Le mot commence par "+T[0]+"."+(H.length&&!AU()&&Date.now()-load("bk",0)>12096e5?" Pensez à exporter votre sauvegarde (Statistiques).":"");$("end").style.display="none";draw()}
+function start(o){dmode=false;sel.disabled=false;if(o){N=norm(o).length;sel.value=N}rev=!!o;const p=A[N]||A[6];O=o||p[Math.floor(Math.random()*p.length)];T=norm(O);rows=[];cur=T[0];over=false;ks={};el=0;la=Date.now();$("m").textContent=(rev?"Révision · ":"")+"Le mot commence par "+T[0]+".";$("end").style.display="none";draw()}
 function score(w){const r=Array(N).fill("no"),u={};for(let k=0;k<N;k++){if(w[k]==T[k])r[k]="ok";else u[T[k]]=(u[T[k]]||0)+1}
 for(let k=0;k<N;k++)if(r[k]!="ok"&&u[w[k]]>0){r[k]="mid";u[w[k]]--}return r}
 function draw(){let h="";
@@ -87,57 +89,83 @@ if(dmode)return dguess();
 play(score(cur),cur==T)}
 function play(s,win,fin){rows.push({w:cur,s});
 const rk={no:1,mid:2,ok:3};[...cur].forEach((x,i)=>{if(!ks[x]||rk[s[i]]>rk[ks[x]])ks[x]=s[i]});
-if(win||fin||rows.length==MAXT){over=true;S.p++;
-if(win){S.w++;S.c++;S.b=Math.max(S.b,S.c);S.d[rows.length-1]++}else S.c=0;
-S.tt=(S.tt||0)+el;if(win)S.tw=(S.tw||0)+el;save("s",S);H.unshift({w:O,n:N,r:win?rows.length:0,t:el,d:new Date().toISOString(),v:rev?1:0,dj:dmode?1:0});H=H.slice(0,3000);save("h",H);track(win);setTimeout(sync,300);
+if(win||fin||rows.length==MAXT){over=true;
+addGame({id:newId(),w:O,n:N,r:win?rows.length:0,t:el,d:new Date().toISOString(),v:rev?1:0,dj:dmode?1:0});track(win);
 $("m").textContent=win?"Trouvé en "+rows.length+" essai"+(rows.length>1?"s":"")+" ! ("+fmt(el)+")":"Perdu cette fois. ("+fmt(el)+")";
 $("et").textContent=win?"Le mot était :":"Le mot à trouver était :";$("ew").textContent=O.toUpperCase();
 $("ed").href="https://fr.wiktionary.org/wiki/"+encodeURIComponent(O);$("end").style.display="block";stats();endui();if(dmode)setTimeout(()=>{djr();show("dj")},2200)}
 else{cur=T[0];$("m").textContent=""}
 draw()}
 function stats(){const m=Math.max(1,...S.d);
-$("st").innerHTML=`<button onclick="$('st').style.display='none'" style="float:right">Fermer</button><div class="n" style="clear:both;padding-top:10px"><div><b>${S.p}</b>parties</div><div><b>${S.p?Math.round(100*S.w/S.p):0}%</b>victoires</div><div><b>${S.c}</b>série</div><div><b>${S.b}</b>meilleure série</div></div><p>Temps moyen par victoire : <b>${S.w&&S.tw?fmt(Math.round(S.tw/S.w)):"–"}</b><br>Temps total de jeu : <b>${fmt(S.tt||0)}</b></p><p>Répartition des victoires par nombre d'essais</p>`+S.d.map((v,i)=>`<div class="bar">${i+1}<i style="width:${Math.max(8,100*v/m*.85)}%">${v}</i></div>`).join("")+`<p style="margin-top:14px"><small>Dernière sauvegarde : ${load("bk",0)?new Date(load("bk",0)).toLocaleDateString("fr-FR"):"jamais"}</small></p><div class="row"><button onclick="exp()">Exporter ma sauvegarde</button><button onclick="$('imp').click()">Importer</button></div><input id="imp" type="file" accept=".json" hidden>`}
+$("st").innerHTML=`<button onclick="$('st').style.display='none'" style="float:right">Fermer</button><div class="n" style="clear:both;padding-top:10px"><div><b>${S.p}</b>parties</div><div><b>${S.p?Math.round(100*S.w/S.p):0}%</b>victoires</div><div><b>${S.c}</b>série</div><div><b>${S.b}</b>meilleure série</div></div><p>Temps moyen par victoire : <b>${S.w&&S.tw?fmt(Math.round(S.tw/S.w)):"–"}</b><br>Temps total de jeu : <b>${fmt(S.tt||0)}</b></p><p>Répartition des victoires par nombre d'essais</p>`+S.d.map((v,i)=>`<div class="bar">${i+1}<i style="width:${Math.max(8,100*v/m*.85)}%">${v}</i></div>`).join("")+``+(AU()?`<p style="margin-top:14px"><small>Statistiques calculées à partir de votre historique enregistré en ligne.</small></p><div class="row"><button onclick="exp()">Télécharger mes données</button></div>`:`<p style="margin-top:14px"><small>Sans compte, ces statistiques disparaissent à la fermeture de l'appli. Créez un compte (bouton « Compte ») pour les garder et les retrouver sur tous vos appareils.</small></p>`)}
 function hist(){const L=hsort?[...H].sort((a,b)=>(b.t||0)-(a.t||0)):H;
 $("hs").innerHTML=`<button onclick="$('hs').style.display='none'" style="float:right">Fermer</button><h2 style="margin:0 0 10px;font:700 1.2rem Georgia,serif">Historique (${H.length})</h2><button onclick="hsort=!hsort;hist()">${hsort?"Trier par date":"Trier par temps passé"}</button><div style="margin-top:10px">`+(L.length?L.map(x=>`<div class="hl"><span>${x.r?"✅":"❌"} <b>${x.w.toUpperCase()}</b> <small>(${x.n} lettres)</small></span><span>${x.r?x.r+"/6":"échec"} · ${fmt(x.t||0)}<br><small>${new Date(x.d).toLocaleDateString("fr-FR")}</small></span></div>`).join(""):"<p>Aucune partie terminée pour l'instant.</p>")+"</div>"}
-function exp(){const b=new Blob([JSON.stringify({v:2,s:S,h:H,c:C})],{type:"application/json"});save("bk",Date.now());const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="six-essais-sauvegarde-"+new Date().toISOString().slice(0,10)+".json";a.click()}
-function imp(f){if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!d.s||!Array.isArray(d.s.d)||d.s.d.length!=6||!Array.isArray(d.h))throw 0;
-if(!confirm("Remplacer l'historique actuel par cette sauvegarde ?"))return;S=d.s;H=d.h;if(d.c&&typeof d.c=="object")C=d.c;else{C={};H.forEach(x=>{if(!x.r||x.r>=5||(x.t||0)>=180){const k=norm(x.w);if(!C[k])C[k]={w:x.w,n:k.length,rv:true,bx:0,due:Date.now(),note:""}}})}save("s",S);save("h",H);save("c",C);stats();setTimeout(sync,200);$("m").textContent="Sauvegarde importée."}catch(e){alert("Fichier de sauvegarde non reconnu.")}};r.readAsText(f)}
-document.addEventListener("change",e=>{if(e.target.id=="imp")imp(e.target.files[0])});
+function exp(){const b=new Blob([JSON.stringify({v:10,s:S,h:H,c:C})],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="six-essais-sauvegarde-"+new Date().toISOString().slice(0,10)+".json";a.click()}
+
 /* ===== Compte et synchronisation (Supabase, via l'API REST) ===== */
 const SB="https://brpbtjqvdrluazesnsak.supabase.co",KEY="sb_publishable_rVHqFMKNmtnjo5ld25Xn_Q_kJa8oHP3";
 let AUTH=load("auth",null),AM="in",busy=false,syn="";
 const AU=()=>!!(AUTH&&AUTH.rt),mx=(a,b)=>Math.max(a||0,b||0);
-/* "own" = compte auquel appartiennent les données de cet appareil (null = parties jouées sans compte) */
-if(load("own","?")=="?")save("own",AU()?AUTH.uid:null);
-function clearLocal(){S={p:0,w:0,c:0,b:0,d:[0,0,0,0,0,0]};H=[];C={};save("s",S);save("h",H);save("c",C);try{stats()}catch(e){}}
-function adopt(nu){const own=load("own",null);if(own===nu)return;
-if(own||!(H.length||S.p))clearLocal();
-else if(!confirm("Cet appareil contient "+(H.length||S.p)+" partie(s) jouée(s) sans compte. Les ajouter à ce compte ?\n\n(Choisissez « Annuler » si ces parties sont celles de quelqu'un d'autre.)"))clearLocal();
-save("own",nu)}
+/* ===== v10 — le serveur fait foi =====
+   Sur l'appareil, un tiroir par compte : "u:<id>:cache" (copie de ce que dit le serveur, jetable)
+   et "u:<id>:out" (boîte d'envoi : ce que le serveur ne sait pas encore).
+   Sans compte : rien n'est gardé, tout reste en mémoire jusqu'à la fermeture. */
+const K=u=>"u:"+u+":";
+const newId=()=>crypto.randomUUID?crypto.randomUUID():"10000000-1000-4000-8000-100000000000".replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16));
+const getOut=u=>{const o=load(K(u)+"out",null);return o&&Array.isArray(o.g)&&o.c&&typeof o.c=="object"?o:{g:[],c:{}}};
+const setOut=(u,o)=>save(K(u)+"out",o);
+const dropCache=u=>{try{localStorage.removeItem("six:"+K(u)+"cache")}catch(e){}};
+const dropOut=u=>{try{localStorage.removeItem("six:"+K(u)+"out")}catch(e){}};
+const pend=u=>{const o=getOut(u);return o.g.length+Object.keys(o.c).length};
+function derive(h){const o={p:0,w:0,tt:0,tw:0,d:[0,0,0,0,0,0],c:0,b:0};h.forEach(x=>{o.p++;o.tt+=x.t||0;if(x.r){o.w++;o.tw+=x.t||0;o.d[x.r-1]++}});let c=0;[...h].reverse().forEach(x=>{if(x.r){c++;o.b=Math.max(o.b,c)}else c=0});o.c=c;return o}
+/* statistiques = calcul à partir des parties + report des parties antérieures à l'historique */
+function calcS(){const D=derive(H),L=LG||{p:0,w:0,tt:0,tw:0,d:[0,0,0,0,0,0],b:0};
+return{p:D.p+L.p,w:D.w+L.w,tt:D.tt+L.tt,tw:D.tw+L.tw,d:D.d.map((v,i)=>v+(L.d[i]||0)),c:D.c,b:mx(D.b,L.b)}}
+/* ce qu'on affiche = copie du serveur + boîte d'envoi */
+function rebuild(){if(!AU())return asGuest();const u=AUTH.uid,ca=load(K(u)+"cache",null)||{g:[],c:{},l:null},o=getOut(u),seen=new Set(),g=[];
+[...o.g,...(ca.g||[])].forEach(x=>{if(x&&x.id&&!seen.has(x.id)){seen.add(x.id);g.push(x)}});
+g.sort((a,b)=>a.d<b.d?1:a.d>b.d?-1:0);H=g;C={};Object.entries(ca.c||{}).forEach(([k,v])=>C[k]={...v});Object.entries(o.c).forEach(([k,v])=>C[k]={...v});
+LG=ca.l||null;S=calcS();try{stats()}catch(e){}}
+function asGuest(){H=[];C={};LG=null;S=calcS();try{stats()}catch(e){}}
+/* une partie terminée : en mémoire, et dans la boîte d'envoi du compte qui l'a jouée */
+function addGame(x){H.unshift(x);S=calcS();if(AU()){const u=AUTH.uid,o=getOut(u);o.g.push(x);setOut(u,o);setTimeout(sync,300)}}
+/* une modification du carnet : datée, et rangée dans la boîte d'envoi (la plus récente gagnera) */
+function nbSet(k){const e=C[k];if(!e)return;e.u=Date.now();if(AU()){const u=AUTH.uid,o=getOut(u);o.c[k]={...e};setOut(u,o)}}
+const toRow=x=>({id:x.id,word:x.w,length:x.n,tries:x.r||0,seconds:Math.max(0,Math.round(x.t||0)),played_at:x.d,review:!!x.v,daily:!!x.dj});
+const fromRow=r=>({id:r.id,w:r.word,n:r.length,r:r.tries,t:r.seconds,d:new Date(r.played_at).toISOString(),v:r.review?1:0,dj:r.daily?1:0});
+const nbRow=(k,e)=>({key:k,word:e.w,length:e.n||k.length,box:e.bx||0,in_review:!!e.rv,due:Math.round(e.due||0),note:e.note||"",updated_at:e.u||0});
+const fromNb=r=>({w:r.word,n:r.length,bx:r.box,rv:r.in_review,due:+r.due,note:r.note,u:+r.updated_at});
 let authBusy=false;
 const errFr=m=>{m=String(m);return /invalid login/i.test(m)?"Adresse ou mot de passe incorrect.":/already registered|user_already_exists/i.test(m)?"Un compte existe déjà avec cette adresse.":/not confirmed/i.test(m)?"Adresse pas encore confirmée : cliquez sur le lien reçu par e-mail.":/rate limit|over_email_send/i.test(m)?"Trop d'e-mails envoyés pour le moment, réessayez plus tard.":/weak/i.test(m)?"Mot de passe trop faible.":m};
 async function api(path,opt={},tk){const h={apikey:KEY,"Content-Type":"application/json",...(tk?{Authorization:"Bearer "+tk}:{}),...(opt.headers||{})};
 const r=await fetch(SB+path,{...opt,headers:h});let j=null;try{j=await r.json()}catch(e){}
 if(!r.ok)throw new Error(errFr((j&&(j.error_description||j.msg||j.message||j.error_code))||"Erreur "+r.status));return j}
+async function fetchAll(path,tk){let out=[];for(let o=0;;o+=1000){const r=await api(path+"&limit=1000&offset="+o,{},tk);out=out.concat(r||[]);if(!r||r.length<1000)return out}}
 function setSess(j,u){if(!j||!j.access_token)return false;if(u)j.user=u;AUTH={at:j.access_token,rt:j.refresh_token,exp:j.expires_at||Math.floor(Date.now()/1e3)+(j.expires_in||3600),uid:(j.user&&j.user.id)||(AUTH&&AUTH.uid),email:(j.user&&j.user.email)||(AUTH&&AUTH.email)};save("auth",AUTH);return true}
+/* session expirée : on retire la copie du compte, mais sa boîte d'envoi attend son retour */
+function expired(){const u=AUTH&&AUTH.uid;if(u)dropCache(u);AUTH=null;save("auth",null);asGuest();syn="Session expirée : reconnectez-vous (bouton « Compte »).";setSy(syn)}
 async function tok(){if(!AU())throw new Error("Non connecté");
-if(AUTH.exp-60<Date.now()/1e3){try{setSess(await api("/auth/v1/token?grant_type=refresh_token",{method:"POST",body:JSON.stringify({refresh_token:AUTH.rt})}))}catch(e){if(!(e instanceof TypeError)){AUTH=null;save("auth",null);setSy("")}throw e}}return AUTH.at}
-function derive(h){const o={p:0,w:0,tt:0,tw:0,d:[0,0,0,0,0,0],c:0,b:0};h.forEach(x=>{o.p++;o.tt+=x.t||0;if(x.r){o.w++;o.tw+=x.t||0;o.d[x.r-1]++}});let c=0;[...h].reverse().forEach(x=>{if(x.r){c++;o.b=Math.max(o.b,c)}else c=0});o.c=c;return o}
-function leg(s,h){const D=derive(h);s=s||{};return{p:mx(0,(s.p||0)-D.p),w:mx(0,(s.w||0)-D.w),tt:mx(0,(s.tt||0)-D.tt),tw:mx(0,(s.tw||0)-D.tw),d:D.d.map((v,i)=>mx(0,((s.d||[])[i]||0)-v))}}
-function merge(a,b){const k={},u=[];[...(a.h||[]),...(b.h||[])].forEach(x=>{const i=x.d+"|"+x.w;if(!k[i]){k[i]=1;u.push(x)}});u.sort((x,y)=>y.d>x.d?1:-1);const h=u.slice(0,3000);
-const la=leg(a.s,a.h||[]),lb=leg(b.s,b.h||[]),L={p:mx(la.p,lb.p),w:mx(la.w,lb.w),tt:mx(la.tt,lb.tt),tw:mx(la.tw,lb.tw),d:la.d.map((v,i)=>mx(v,lb.d[i]))},D=derive(h);
-const s={p:D.p+L.p,w:D.w+L.w,tt:D.tt+L.tt,tw:D.tw+L.tw,d:D.d.map((v,i)=>v+L.d[i]),c:h.length?D.c:mx((a.s||{}).c,(b.s||{}).c),b:mx(D.b,mx((a.s||{}).b,(b.s||{}).b))};
-const c={};new Set([...Object.keys(a.c||{}),...Object.keys(b.c||{})]).forEach(key=>{const x=(a.c||{})[key],y=(b.c||{})[key];if(!x||!y)c[key]=x||y;else{const w=(y.due||0)>(x.due||0)?y:x,o=w===x?y:x;c[key]={...w,note:w.note||o.note||""}}});
-return{v:2,s,h,c}}
+if(AUTH.exp-60<Date.now()/1e3){try{setSess(await api("/auth/v1/token?grant_type=refresh_token",{method:"POST",body:JSON.stringify({refresh_token:AUTH.rt})}))}catch(e){if(!(e instanceof TypeError))expired();throw e}}return AUTH.at}
 function setSy(m){syn=m;const e=$("sy");if(e)e.textContent=m;$("ab").textContent=AU()?"☁ Compte":"Compte"}
-async function sync(manual){if(!AU()||busy)return;busy=true;setSy("Synchronisation…");
-try{const t=await tok(),uid=AUTH.uid,r=await api("/rest/v1/user_data?select=data&user_id=eq."+uid,{},t);
-const cl=r[0]&&r[0].data&&r[0].data.s?r[0].data:null,m=cl?merge({s:S,h:H,c:C},cl):{v:2,s:S,h:H,c:C};
-S=m.s;H=m.h;C=m.c;save("s",S);save("h",H);save("c",C);
-if(!cl||JSON.stringify(m)!=JSON.stringify(cl))await api("/rest/v1/user_data?on_conflict=user_id",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({user_id:uid,data:m,updated_at:new Date().toISOString()})},t);
-dflush();setSy("Synchronisé à "+new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}));try{stats()}catch(e){}}
-catch(e){setSy(e instanceof TypeError?"Hors ligne : synchronisation à la prochaine connexion.":"Erreur : "+e.message)}
-busy=false}
+/* synchronisation : 1) envoyer la boîte d'envoi de ce compte ; 2) recharger depuis le serveur ; 3) remplacer la copie */
+async function sync(manual){if(!AU()||busy)return;busy=true;const u=AUTH.uid;setSy("Synchronisation…");
+try{const t=await tok();let o=getOut(u);
+if(o.g.length){const ids=new Set(o.g.map(x=>x.id));
+await api("/rest/v1/games?on_conflict=id",{method:"POST",headers:{Prefer:"resolution=ignore-duplicates,return=minimal"},body:JSON.stringify(o.g.map(toRow))},t);
+o=getOut(u);o.g=o.g.filter(x=>!ids.has(x.id));setOut(u,o)}
+const ks=Object.keys(o.c);if(ks.length){const snap=ks.map(k=>[k,o.c[k]]);
+await api("/rest/v1/rpc/notebook_write",{method:"POST",body:JSON.stringify({p_entries:snap.map(([k,e])=>nbRow(k,e))})},t);
+o=getOut(u);snap.forEach(([k,e])=>{if(o.c[k]&&o.c[k].u===e.u)delete o.c[k]});setOut(u,o)}
+const g=await fetchAll("/rest/v1/games?select=id,word,length,tries,seconds,played_at,review,daily&order=played_at.desc",t),
+nb=await fetchAll("/rest/v1/notebook?select=key,word,length,box,in_review,due,note,updated_at&order=key",t),
+lg=await api("/rest/v1/legacy_stats?select=played,won,total_seconds,won_seconds,dist,best_streak",{},t);
+if(!AUTH||AUTH.uid!==u)return;
+const c={};nb.forEach(r=>c[r.key]=fromNb(r));const l=lg&&lg[0];
+save(K(u)+"cache",{g:g.map(fromRow),c,l:l?{p:l.played,w:l.won,tt:+l.total_seconds,tw:+l.won_seconds,d:l.dist,b:l.best_streak}:null,at:Date.now()});
+rebuild();dflush();const n=pend(u);
+setSy("Synchronisé à "+new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})+(n?" · "+n+" en attente d'envoi":""))}
+catch(e){if(AU())setSy(e instanceof TypeError?"Hors ligne : envoi à la prochaine connexion.":"Erreur : "+e.message)}
+finally{busy=false}}
 async function doAuth(mode){if(authBusy)return;authBusy=true;try{await doAuth2(mode)}finally{authBusy=false}}
 async function doAuth2(mode){const em=$("ae").value.trim(),pw=$("ap")?$("ap").value:"",m=$("am"),ru=encodeURIComponent(location.origin+location.pathname);m.textContent="…";
 try{if(mode=="reset"){await api("/auth/v1/recover?redirect_to="+ru,{method:"POST",body:JSON.stringify({email:em})});m.textContent="Si cette adresse existe, un e-mail de réinitialisation vient d'être envoyé.";return}
@@ -145,27 +173,28 @@ if(pw.length<8){m.textContent="Mot de passe : 8 caractères minimum.";return}
 if(mode=="up"){const j=await api("/auth/v1/signup?redirect_to="+ru,{method:"POST",body:JSON.stringify({email:em,password:pw})});
 if(!setSess(j)){m.textContent="Compte créé. Vérifiez vos e-mails, cliquez sur le lien de confirmation, puis revenez vous connecter ici.";return}}
 else setSess(await api("/auth/v1/token?grant_type=password",{method:"POST",body:JSON.stringify({email:em,password:pw})}));
-adopt(AUTH.uid);await sync(true);acr()}catch(e){m.textContent=e.message}}
+rebuild();await sync(true);acr()}catch(e){m.textContent=e.message}}
 async function newPw(){const pw=$("ap").value,m=$("am");if(pw.length<8){m.textContent="Mot de passe : 8 caractères minimum.";return}
 try{await api("/auth/v1/user",{method:"PUT",body:JSON.stringify({password:pw})},AUTH.at);AM="in";await sync(true);acr()}catch(e){m.textContent=e.message}}
-async function logout(){if(!confirm("Se déconnecter ? Vos données restent en ligne et seront effacées de cet appareil."))return;
-await sync();if(/^Erreur|^Hors/.test(syn)&&!confirm("La dernière synchronisation a échoué : des parties récentes pourraient être perdues. Se déconnecter quand même ?"))return;
+async function logout(){if(!confirm("Se déconnecter ? Vos données restent en ligne et seront retirées de cet appareil."))return;
+await sync();if(!AU()){acr();return}const u=AUTH.uid,n=pend(u);
+if(n&&!confirm(n+" élément(s) n'ont pas pu être envoyé(s) faute de connexion. Ils resteront en attente sur cet appareil, à votre nom, et partiront à votre prochaine connexion. Se déconnecter quand même ?"))return;
 try{await api("/auth/v1/logout",{method:"POST"},AUTH.at)}catch(e){}
-AUTH=null;save("auth",null);clearLocal();save("own",null);setSy("");acr();start()}
-async function delAcc(){if(!confirm("Supprimer définitivement votre compte et toutes vos données en ligne ? Les données resteront sur cet appareil."))return;
-try{const t=await tok();await api("/rest/v1/rpc/delete_my_account",{method:"POST",body:"{}"},t);AUTH=null;save("auth",null);save("own",null);setSy("");acr()}catch(e){alert("Suppression impossible : "+e.message)}}
+dropCache(u);AUTH=null;save("auth",null);asGuest();setSy("");acr();start()}
+async function delAcc(){if(!confirm("Supprimer définitivement votre compte et toutes vos données (statistiques, historique, carnet), en ligne et sur cet appareil ?"))return;
+try{const t=await tok(),u=AUTH.uid;await api("/rest/v1/rpc/delete_my_account",{method:"POST",body:"{}"},t);dropCache(u);dropOut(u);AUTH=null;save("auth",null);asGuest();setSy("");acr();start()}catch(e){alert("Suppression impossible : "+e.message)}}
 function acr(){const x=s=>String(s||"").replace(/</g,"&lt;"),cl=`<button onclick="$('ac').style.display='none'" style="float:right">Fermer</button>`,hh=`<h2 style="margin:0 0 10px;font:700 1.2rem Georgia,serif">`,ip="style=\"width:100%;padding:9px;margin:4px 0\"";let h;
 if(AM=="new")h=cl+hh+`Nouveau mot de passe</h2><input id="ap" type="password" autocomplete="new-password" placeholder="Nouveau mot de passe (8 caractères min.)" ${ip}><p><button onclick="newPw()">Enregistrer</button></p><p id="am"></p>`;
-else if(AU())h=cl+hh+`Mon compte</h2><p>Connecté : <b>${x(AUTH.email)}</b></p><p id="sy">${x(syn)}</p><div class="row"><button onclick="sync(true)">Synchroniser maintenant</button><button onclick="logout()">Se déconnecter</button></div><p><small>Vos statistiques, votre historique et votre carnet sont enregistrés en ligne et partagés entre vos appareils connectés à ce compte.</small></p><p><button onclick="delAcc()">Supprimer mon compte et mes données en ligne</button></p>`;
-else h=cl+hh+`Compte</h2><p><small>Facultatif : sans compte, le jeu fonctionne normalement sur cet appareil.</small></p><div class="row"><button onclick="AM='in';acr()">Connexion</button><button onclick="AM='up';acr()">Créer un compte</button></div><input id="ae" type="email" autocomplete="email" placeholder="Adresse e-mail" ${ip}>`+(AM=="reset"?"":`<input id="ap" type="password" autocomplete="${AM=="up"?"new-password":"current-password"}" placeholder="Mot de passe (8 caractères min.)" ${ip}>`)+`<p><button onclick="doAuth(AM)">${AM=="up"?"Créer mon compte":AM=="reset"?"Envoyer le lien de réinitialisation":"Se connecter"}</button></p>`+(AM=="reset"?"":`<p><a href="#" onclick="AM='reset';acr();return false">Mot de passe oublié ?</a></p>`)+`<p id="am"></p>`;
+else if(AU())h=cl+hh+`Mon compte</h2><p>Connecté : <b>${x(AUTH.email)}</b></p><p id="sy">${x(syn)}</p><div class="row"><button onclick="sync(true)">Synchroniser maintenant</button><button onclick="logout()">Se déconnecter</button></div><p><small>Vos statistiques, votre historique et votre carnet sont enregistrés en ligne : vous les retrouvez sur n'importe quel appareil en vous connectant. À la déconnexion, ils sont retirés de cet appareil.</small></p><p><button onclick="delAcc()">Supprimer mon compte et mes données en ligne</button></p>`;
+else h=cl+hh+`Compte</h2><p><small>Sans compte, on peut jouer, mais rien n'est gardé : ni statistiques, ni historique, ni carnet. Avec un compte, tout est enregistré en ligne et vous le retrouvez sur n'importe quel appareil.</small></p><div class="row"><button onclick="AM='in';acr()">Connexion</button><button onclick="AM='up';acr()">Créer un compte</button></div><input id="ae" type="email" autocomplete="email" placeholder="Adresse e-mail" ${ip}>`+(AM=="reset"?"":`<input id="ap" type="password" autocomplete="${AM=="up"?"new-password":"current-password"}" placeholder="Mot de passe (8 caractères min.)" ${ip}>`)+`<p><button onclick="doAuth(AM)">${AM=="up"?"Créer mon compte":AM=="reset"?"Envoyer le lien de réinitialisation":"Se connecter"}</button></p>`+(AM=="reset"?"":`<p><a href="#" onclick="AM='reset';acr();return false">Mot de passe oublié ?</a></p>`)+`<p id="am"></p>`;
 $("ac").innerHTML=h}
 async function hashAuth(){const q=new URLSearchParams(location.hash.slice(1));
 if(q.get("error_description")){history.replaceState(null,"",location.pathname);AM="in";acr();show("ac");const m=$("am");if(m)m.textContent=q.get("error_description");return}
 if(!q.get("access_token"))return;history.replaceState(null,"",location.pathname);
 let u;try{u=await api("/auth/v1/user",{},q.get("access_token"))}catch(e){return}
-if(AU()&&AUTH.uid!==u.id)await sync();
+if(AU()&&AUTH.uid!==u.id){const old=AUTH.uid;await sync();dropCache(old)}
 setSess({access_token:q.get("access_token"),refresh_token:q.get("refresh_token"),expires_in:+q.get("expires_in")||3600},u);
-adopt(u.id);
+rebuild();
 if(q.get("type")=="recovery")AM="new";else{AM="in";await sync()}acr();show("ac")}
 document.addEventListener("visibilitychange",()=>{if(AU())sync()});
 const dueN=()=>Object.values(C).filter(e=>e.rv&&e.due<=Date.now()).length;
@@ -174,15 +203,15 @@ function track(win){let e=C[T];
 if(rev&&e){if(win){e.bx=Math.min(e.bx+1,5);e.due=Date.now()+IV[e.bx]*864e5}else{e.bx=0;e.due=Date.now()+864e5}}
 else if(!win){e=mk();e.rv=true;e.bx=0;e.due=Date.now()+864e5}
 else if(rows.length>=5||el>=180){e=mk();if(!e.rv){e.rv=true;e.bx=0;e.due=Date.now()+864e5}}
-save("c",C)}
+nbSet(T)}
 function endui(){const e=C[T];$("rvb").textContent=e&&e.rv?"✓ Dans ma liste à revoir (retirer)":"Ajouter à ma liste à revoir";$("nt").value=e&&e.note||"";$("rn").style.display=dueN()?"inline-block":"none";$("rn").textContent="Réviser un mot ("+dueN()+")"}
-$("rvb").onclick=()=>{const e=mk();e.rv=!e.rv;if(e.rv){e.bx=0;e.due=Date.now()+864e5}save("c",C);endui()};
-$("nt").oninput=()=>{mk().note=$("nt").value;save("c",C)};
+$("rvb").onclick=()=>{const e=mk();e.rv=!e.rv;if(e.rv){e.bx=0;e.due=Date.now()+864e5}nbSet(T);endui()};
+$("nt").oninput=()=>{mk().note=$("nt").value;nbSet(T)};
 function show(id){["st","hs","cn","ps","ac","dj"].forEach(x=>{const s=$(x);s.style.display=x==id&&getComputedStyle(s).display=="none"?"block":"none"})}
 function rvNext(){const e=Object.values(C).filter(e=>e.rv).sort((a,b)=>a.due-b.due)[0];if(!e){$("m").textContent="Aucun mot dans la liste à revoir.";return}["st","hs","cn","ps","ac","dj"].forEach(x=>$(x).style.display="none");start(e.w)}
 $("rn").onclick=rvNext;
-function cnote(k,v){if(C[k]){C[k].note=v;save("c",C)}}
-function ctog(k){const e=C[k];e.rv=!e.rv;if(e.rv){e.bx=0;e.due=Date.now()}save("c",C);cnr()}
+function cnote(k,v){if(C[k]){C[k].note=v;nbSet(k)}}
+function ctog(k){const e=C[k];e.rv=!e.rv;if(e.rv){e.bx=0;e.due=Date.now()}nbSet(k);cnr()}
 function cexp(){const t=Object.values(C).map(e=>e.w+(e.note?" — "+e.note:"")+(e.rv?"":" (hors liste)")).join("\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([t],{type:"text/plain"}));a.download="carnet-de-mots.txt";a.click()}
 function cnr(){const L=Object.values(C).sort((a,b)=>(b.rv-a.rv)||a.due-b.due),d=dueN();
 $("cn").innerHTML=`<button onclick="$('cn').style.display='none'" style="float:right">Fermer</button><h2 style="margin:0 0 10px;font:700 1.2rem Georgia,serif">Carnet de mots (${L.length})</h2><p>${d?"<b>"+d+"</b> mot"+(d>1?"s":"")+" à réviser aujourd'hui.":"Rien à réviser aujourd'hui."}</p><div class="row"><button onclick="rvNext()">Réviser maintenant</button><button onclick="cexp()">Exporter la liste</button></div><div style="margin-top:10px">`+(L.length?L.map(e=>{const k=norm(e.w);return `<div class="hl" style="text-align:left;flex-direction:column;align-items:stretch"><div style="display:flex;justify-content:space-between;gap:8px"><b>${e.w.toUpperCase()}</b><small>${e.rv?(e.due<=Date.now()?"à revoir aujourd'hui":"prochaine révision : "+new Date(e.due).toLocaleDateString("fr-FR"))+" · niveau "+e.bx+"/5":"hors liste"}</small></div><input value="${(e.note||"").replace(/"/g,"&quot;")}" placeholder="Ma note…" onchange="cnote('${k}',this.value)" style="width:100%;margin-top:4px;padding:6px"><div class="row" style="margin-top:4px"><button onclick="ctog('${k}')">${e.rv?"Retirer de la liste":"Remettre à revoir"}</button></div></div>`}).join(""):"<p>Le carnet est vide : les mots ratés ou difficiles s'y ajoutent automatiquement.</p>")+"</div>"}
@@ -304,7 +333,7 @@ at(9800,()=>{g.style.transition="opacity 1.5s";g.style.opacity=.35;q("#it").styl
 at(13400,done)};
 if(P.m!=="0"){q("#it").style.opacity=1;q("#is").textContent="Toucher pour entrer ♪";q("#is").style.opacity=1;
 o.onclick=()=>{o.onclick=null;q("#it").style.opacity=0;q("#is").style.opacity=0;q("#is").textContent="";q("#iv").style.display="";audio();at(900,go)}}else go()}
-applyP();setSy(syn);try{stats()}catch(e){}
+applyP();setSy(syn);rebuild();
 start();hashAuth().then(()=>sync());try{runIntro()}catch(e){}
 if("serviceWorker" in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script></body></html>
